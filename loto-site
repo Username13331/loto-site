@@ -236,10 +236,82 @@
     .row b{color:rgba(255,255,255,.92)}
     .bigJoin{margin-top:14px}
     .foot{margin-top:10px;color:rgba(255,255,255,.45);font-size:11px;text-align:center}
+
+    /* ====== Glow + Animated background ====== */
+    .bg-orbs{
+      position:fixed; inset:-40px; z-index:-1;
+      filter: blur(22px);
+      opacity:.95;
+      pointer-events:none;
+    }
+    .orb{
+      position:absolute;
+      width:520px; height:520px; border-radius:999px;
+      mix-blend-mode: screen;
+      animation: floaty 10s ease-in-out infinite;
+    }
+    .orb.a{ left:-120px; top:-140px; background: radial-gradient(circle at 30% 30%, rgba(176,108,255,.85), transparent 60%); animation-duration: 12s;}
+    .orb.b{ right:-180px; top:-120px; background: radial-gradient(circle at 30% 30%, rgba(67,245,213,.75), transparent 60%); animation-duration: 14s;}
+    .orb.c{ left:20%; bottom:-220px; background: radial-gradient(circle at 35% 35%, rgba(255,99,198,.55), transparent 62%); animation-duration: 16s;}
+    @keyframes floaty{
+      0%,100%{ transform: translate3d(0,0,0) scale(1); }
+      50%{ transform: translate3d(18px,-22px,0) scale(1.03); }
+    }
+
+    .glow-border{
+      position:relative;
+    }
+    .glow-border:after{
+      content:"";
+      position:absolute; inset:-1px;
+      border-radius:inherit;
+      background: linear-gradient(90deg, rgba(67,245,213,.55), rgba(255,210,74,.55), rgba(176,108,255,.55));
+      opacity:.35;
+      filter: blur(10px);
+      z-index:-1;
+    }
+
+    .btn.gold{
+      position:relative;
+      overflow:hidden;
+    }
+    .btn.gold:before{
+      content:"";
+      position:absolute; top:-80px; left:-120px;
+      width:120px; height:220px;
+      background: rgba(255,255,255,.35);
+      transform: rotate(25deg);
+      opacity:0;
+    }
+    .btn.gold:hover{ filter: brightness(1.05); }
+    .btn.gold:hover:before{
+      animation: shine .9s ease-in-out;
+    }
+    @keyframes shine{
+      0%{ transform: translateX(-120px) rotate(25deg); opacity:0; }
+      20%{ opacity:.55; }
+      100%{ transform: translateX(520px) rotate(25deg); opacity:0; }
+    }
+
+    /* cards pop */
+    .roomCard, .balanceCard, .roomHeader, .stats{
+      transition: transform .12s ease, border-color .2s ease, background .2s ease;
+    }
+    .roomCard:hover{
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,.16);
+      background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.035));
+    }
   </style>
 </head>
 
 <body>
+  <div class="bg-orbs">
+    <div class="orb a"></div>
+    <div class="orb b"></div>
+    <div class="orb c"></div>
+  </div>
+
   <div class="wrap">
 
     <div id="lobby" class="screen active">
@@ -256,7 +328,7 @@
         <div style="opacity:.55;font-size:12px;font-weight:700">Mini App</div>
       </div>
 
-      <div class="balanceCard glass">
+      <div class="balanceCard glass glow-border">
         <div class="balanceLeft">
           <div class="lbl">Ваш баланс</div>
           <div class="val"><span class="coin"></span> <span id="bal">12.5</span> <span style="font-size:14px;color:var(--muted2);font-weight:800">TON</span></div>
@@ -270,7 +342,7 @@
       <div class="sectionTitle">Доступные комнаты</div>
 
       <div class="rooms">
-        <div class="roomCard">
+        <div class="roomCard glow-border">
           <div class="roomInner">
             <div class="roomTop">
               <div class="roomName">Комната №1</div>
@@ -284,7 +356,7 @@
           </div>
         </div>
 
-        <div class="roomCard">
+        <div class="roomCard glow-border">
           <div class="roomInner">
             <div class="roomTop">
               <div class="roomName">Комната №2</div>
@@ -298,7 +370,7 @@
           </div>
         </div>
 
-        <div class="roomCard">
+        <div class="roomCard glow-border">
           <div class="roomInner">
             <div class="roomTop">
               <div class="roomName">Комната №3</div>
