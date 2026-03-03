@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TON Lottery</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { background: #0b0f17; color: #e7eefc; font-family: sans-serif; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .balance-box { background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 12px; border: 1px solid rgba(255,215,0,0.3); }
+        .room-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 15px; margin-bottom: 15px; }
+        .room-title { font-weight: 800; font-size: 18px; margin-bottom: 5px; }
+        .btn-join { background: linear-gradient(180deg, rgba(255,215,0,0.3), rgba(255,215,0,0.1)); color: #ffeaa7; border: 1px solid rgba(255,215,0,0.4); padding: 10px; border-radius: 12px; width: 100%; font-weight: bold; cursor: pointer; }
+        .progress-bar { background: rgba(255,255,255,0.06); height: 8px; border-radius: 10px; margin: 10px 0; overflow: hidden; }
+        .progress-fill { background: rgba(255,215,0,0.5); height: 100%; width: 40%; transition: 0.3s; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div><b style="font-size: 22px;">TON LOTO</b><br><small style="opacity: 0.6;">Быстро • Честно</small></div>
+        <div class="balance-box"><small>Balance</small><br><b>12.5 TON</b></div>
+    </div>
+    <div class="room-card">
+        <div class="room-title">Комната #1</div>
+        <div style="font-size: 13px; opacity: 0.8;">Вход: 1.0 TON • 2/5 чел.</div>
+        <div class="progress-bar"><div class="progress-fill" style="width: 40%;"></div></div>
+        <button class="btn-join" onclick="Telegram.WebApp.sendData('join_room_1')">ПРИСОЕДИНИТЬСЯ</button>
+    </div>
+</body>
+</html>
