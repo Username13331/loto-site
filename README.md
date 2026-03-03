@@ -613,11 +613,10 @@
       }, 1400);
     }
 
-    // ОБНОВЛЕННАЯ ФУНКЦИЯ ДЛЯ ОТПРАВКИ join_test2
+    // ИЗМЕНЕНИЕ: Только отправка боту в тест-комнате (без симуляции)
     async function joinCurrent(){
       const u = tg?.initDataUnsafe?.user;
 
-      // ЛОГИКА ДЛЯ ТЕСТ-КОМНАТЫ (ID 99)
       if (currentRoom.id === 99){
         const payload = JSON.stringify({
           action: "join_test2",
@@ -626,18 +625,10 @@
           username: u?.username ? "@"+u.username : (u?.first_name || "Игрок")
         });
 
-        // Визуальная симуляция
-        const name = u?.username ? "@"+u.username : (u?.first_name || "Игрок");
-        const arr = loadTestRoom();
-        if (!arr.includes(name) && arr.length < 2){
-          arr.push(name);
-          saveTestRoom(arr);
-        }
-        renderTestRoomSlots();
-
-        // Отправка боту
         if (window.Telegram?.WebApp?.sendData) {
           Telegram.WebApp.sendData(payload);
+        } else {
+          alert(payload);
         }
         return;
       }
