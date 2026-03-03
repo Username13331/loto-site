@@ -214,7 +214,7 @@
                   linear-gradient(180deg, rgba(67,245,213,.55), rgba(176,108,255,.35));
       border:1px solid rgba(255,255,255,.16);
     }
-    .slot .u{font-size:11px;color:rgba(255,255,255,.88);font-weight:800}
+    .slot .u{font-size:11px;color:rgba(255,255,255,.88);font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
     .slot.empty .avatar{
       background: rgba(255,255,255,.06);
       display:grid;place-items:center;
@@ -242,7 +242,6 @@
 <body>
   <div class="wrap">
 
-    <!-- SCREEN: LOBBY -->
     <div id="lobby" class="screen active">
       <div class="topbar">
         <div>
@@ -315,7 +314,6 @@
       </div>
     </div>
 
-    <!-- SCREEN: ROOM -->
     <div id="room" class="screen">
       <div class="backRow">
         <div class="backBtn" onclick="goLobby()">←</div>
@@ -327,20 +325,14 @@
         <div class="s">Игра начнётся при заполнении комнаты (5/5)</div>
       </div>
 
-      <div class="slots">
-        <div class="slot"><div class="avatar"></div><div class="u">@player1</div></div>
-        <div class="slot"><div class="avatar"></div><div class="u">@player2</div></div>
-        <div class="slot"><div class="avatar"></div><div class="u">@player3</div></div>
-        <div class="slot empty"><div class="avatar">+</div><div class="u">Ожидание…</div></div>
-        <div class="slot empty"><div class="avatar">+</div><div class="u">Ожидание…</div></div>
-      </div>
+      <div id="slots" class="slots"></div>
 
       <div class="stats">
         <div class="h">Статистика игры</div>
-        <div class="row"><span>Всего участников</span><b>3/5</b></div>
-        <div class="row"><span>Текущий призовой фонд</span><b>30 TON</b></div>
-        <div class="row"><span>Комиссия 5%</span><b>1.5 TON</b></div>
-        <div class="row"><span>Ожидаемый выигрыш</span><b>28.5 TON</b></div>
+        <div class="row"><span>Всего участников</span><b>0/5</b></div>
+        <div class="row"><span>Текущий призовой фонд</span><b>0 TON</b></div>
+        <div class="row"><span>Комиссия 5%</span><b>0 TON</b></div>
+        <div class="row"><span>Ожидаемый выигрыш</span><b>0 TON</b></div>
 
         <div class="bigJoin">
           <button class="btn gold" onclick="joinCurrent()">Присоединиться к игре (<span id="roomEntry2">10</span> TON)</button>
@@ -356,6 +348,9 @@
     const tg = window.Telegram?.WebApp;
     try { tg?.ready(); tg?.expand(); } catch(e){}
 
+    // ИЗМЕНЕНИЕ 1: Добавили IP твоего сервера в API_BASE
+    const API_BASE = "http://144.31.103.60"; 
+
     let currentRoom = {id:1, entry:10};
 
     function show(id){
@@ -363,23 +358,115 @@
       document.getElementById(id).classList.add('active');
     }
 
+    // ИЗМЕНЕНИЕ 4: Добавлен startRoomPolling()
     function openRoom(id, entry){
       currentRoom = {id, entry};
       document.getElementById('roomTitle').textContent = `№${id}`;
       document.getElementById('roomEntry').textContent = entry;
       document.getElementById('roomEntry2').textContent = entry;
       show('room');
+      startRoomPolling(); 
     }
 
-    function goLobby(){ show('lobby'); }
+    // ИЗМЕНЕНИЕ 4: Добавлен stopRoomPolling()
+    function goLobby(){
+      stopRoomPolling();
+      show('lobby');
+    }
 
-    function joinCurrent(){
-      const payload = `join_room_${currentRoom.id}`;
+    // ИЗМЕНЕНИЕ 3: Функции рендера комнаты и работы с API
+    function tgUser() {
+      const u = tg?.initDataUnsafe?.user;
+      return {
+        id: u?.id ?? null,
+        username: u?.username ? "@"+u.username : (u?.first_name || "Игрок"),
+        photo: u?.photo_url ?? null
+      };
+    }
+
+    function renderSlots(members) {
+      const el = document.getElementById("slots");
+      if (!el) return;
+
+      const max = 5;
+      const filled = members.slice(0, max);
+      const emptyCount = Math.max(0, max - filled.length);
+
+      const slotHtml = (m) => `
+        <div class="slot">
+          <div class="avatar" style="${m.photo_url ? `background-image:url('${m.photo_url}');background-size:cover;background-position:center;` : ""}"></div>
+          <div class="u">${m.username || "Игрок"}</div>
+        </div>
+      `;
+
+      const emptyHtml = () => `
+        <div class="slot empty">
+          <div class="avatar">+</div>
+          <div class="u">Ожидание…</div>
+        </div>
+      `;
+
+      el.innerHTML = filled.map(slotHtml).join("") + Array.from({length: emptyCount}).map(emptyHtml).join("");
+    }
+
+    async function fetchRoomState(roomId){
+      // сервер отдаст JSON: {room_id, entry, members:[{username, photo_url}], count, pot, fee, expected}
+      const r = await fetch(`${API_BASE}/api/rooms/${roomId}`, { cache: "no-store" });
+      if (!r.ok) throw new Error("API error");
+      return await r.json();
+    }
+
+    async function refreshRoom(){
+      try{
+        const st = await fetchRoomState(currentRoom.id);
+
+        // обновим заголовки/взнос
+        document.getElementById('roomTitle').textContent = `№${st.room_id}`;
+        document.getElementById('roomEntry').textContent = st.entry;
+        document.getElementById('roomEntry2').textContent = st.entry;
+
+        // обновим слоты
+        renderSlots(st.members || []);
+
+        // обновим статы
+        const count = st.count ?? (st.members?.length ?? 0);
+        document.querySelectorAll(".row b")[0].textContent = `${count}/5`;
+        document.querySelectorAll(".row b")[1].textContent = `${st.pot ?? (st.entry * count)} TON`;
+        document.querySelectorAll(".row b")[2].textContent = `${st.fee ?? 0} TON`;
+        document.querySelectorAll(".row b")[3].textContent = `${st.expected ?? 0} TON`;
+      }catch(e){
+        // пока API не готово, выводим пустые слоты (чтобы дизайн не ломался)
+        if(document.getElementById("slots").innerHTML === "") {
+             renderSlots([]);
+        }
+      }
+    }
+
+    let roomTimer = null;
+    function startRoomPolling(){
+      stopRoomPolling();
+      refreshRoom();
+      roomTimer = setInterval(refreshRoom, 2000);
+    }
+    function stopRoomPolling(){
+      if (roomTimer) clearInterval(roomTimer);
+      roomTimer = null;
+    }
+
+    // ИЗМЕНЕНИЕ 5: Теперь отправляем красивый JSON с данными игрока
+    async function joinCurrent(){
+      const u = tgUser();
+      const payload = JSON.stringify({
+        action: "join",
+        room_id: currentRoom.id,
+        user: u
+      });
+
       if (window.Telegram?.WebApp?.sendData) {
         Telegram.WebApp.sendData(payload);
-        Telegram.WebApp.showToast?.(`Отправлено: ${payload}`);
+        Telegram.WebApp.showToast?.(`Отправка данных...`);
       } else {
-        alert(`WebApp data: ${payload}`);
+        alert("Данные для бота: " + payload);
       }
     }
 
