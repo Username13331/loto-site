@@ -383,6 +383,21 @@
             </div>
           </div>
         </div>
+
+        <div class="roomCard glow-border">
+          <div class="roomInner">
+            <div class="roomTop">
+              <div class="roomName">Тест-комната (2 игрока)</div>
+              <div class="badge"><span class="coin" style="width:14px;height:14px"></span> 0 TON</div>
+            </div>
+            <div class="meta">Участников: <b id="testCount">0/2</b></div>
+            <div class="progress"><div id="testBar" class="bar" style="width:0%"></div></div>
+            <div class="roomBtnRow">
+              <button class="btn gold" onclick="openTestRoom()">Присоединиться</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -408,7 +423,8 @@
 
         <div class="bigJoin">
           <button class="btn gold" onclick="joinCurrent()">Присоединиться к игре (<span id="roomEntry2">10</span> TON)</button>
-          <div class="foot">Нажимая, вы подтверждаете списание с внутреннего баланса</div>
+          <div id="resultBox" class="foot" style="margin-top:12px;font-size:14px;color:#FFD24A;font-weight:bold;"></div>
+          <div class="foot" style="margin-top:10px;">Нажимая, вы подтверждаете списание с внутреннего баланса</div>
         </div>
       </div>
     </div>
@@ -420,7 +436,6 @@
     const tg = window.Telegram?.WebApp;
     try { tg?.ready(); tg?.expand(); } catch(e){}
 
-    // ИЗМЕНЕНИЕ 1: Добавили IP твоего сервера в API_BASE
     const API_BASE = "http://144.31.103.60"; 
 
     let currentRoom = {id:1, entry:10};
@@ -430,23 +445,24 @@
       document.getElementById(id).classList.add('active');
     }
 
-    // ИЗМЕНЕНИЕ 4: Добавлен startRoomPolling()
     function openRoom(id, entry){
       currentRoom = {id, entry};
       document.getElementById('roomTitle').textContent = `№${id}`;
       document.getElementById('roomEntry').textContent = entry;
       document.getElementById('roomEntry2').textContent = entry;
+      
+      const rb = document.getElementById("resultBox");
+      if (rb) rb.textContent = "";
+
       show('room');
       startRoomPolling(); 
     }
 
-    // ИЗМЕНЕНИЕ 4: Добавлен stopRoomPolling()
     function goLobby(){
       stopRoomPolling();
       show('lobby');
     }
 
-    // ИЗМЕНЕНИЕ 3: Функции рендера комнаты и работы с API
     function tgUser() {
       const u = tg?.initDataUnsafe?.user;
       return {
@@ -482,7 +498,6 @@
     }
 
     async function fetchRoomState(roomId){
-      // сервер отдаст JSON: {room_id, entry, members:[{username, photo_url}], count, pot, fee, expected}
       const r = await fetch(`${API_BASE}/api/rooms/${roomId}`, { cache: "no-store" });
       if (!r.ok) throw new Error("API error");
       return await r.json();
@@ -492,22 +507,18 @@
       try{
         const st = await fetchRoomState(currentRoom.id);
 
-        // обновим заголовки/взнос
         document.getElementById('roomTitle').textContent = `№${st.room_id}`;
         document.getElementById('roomEntry').textContent = st.entry;
         document.getElementById('roomEntry2').textContent = st.entry;
 
-        // обновим слоты
         renderSlots(st.members || []);
 
-        // обновим статы
         const count = st.count ?? (st.members?.length ?? 0);
         document.querySelectorAll(".row b")[0].textContent = `${count}/5`;
         document.querySelectorAll(".row b")[1].textContent = `${st.pot ?? (st.entry * count)} TON`;
         document.querySelectorAll(".row b")[2].textContent = `${st.fee ?? 0} TON`;
         document.querySelectorAll(".row b")[3].textContent = `${st.expected ?? 0} TON`;
       }catch(e){
-        // пока API не готово, выводим пустые слоты (чтобы дизайн не ломался)
         if(document.getElementById("slots").innerHTML === "") {
              renderSlots([]);
         }
@@ -525,8 +536,102 @@
       roomTimer = null;
     }
 
-    // ИЗМЕНЕНИЕ 5: Теперь отправляем красивый JSON с данными игрока
+    // ===== ИЗМЕНЕНИЕ: Логика Тестовой комнаты (2 игрока) =====
+    const TEST_ROOM_KEY = "test_room_2p_v1";
+
+    function getTGName(){
+      const u = tg?.initDataUnsafe?.user;
+      if (!u) return "Игрок";
+      return u.username ? "@"+u.username : (u.first_name || "Игрок");
+    }
+
+    function loadTestRoom(){
+      try { return JSON.parse(localStorage.getItem(TEST_ROOM_KEY) || "[]"); }
+      catch { return []; }
+    }
+
+    function saveTestRoom(arr){
+      localStorage.setItem(TEST_ROOM_KEY, JSON.stringify(arr));
+      renderTestRoomCard();
+    }
+
+    function renderTestRoomCard(){
+      const arr = loadTestRoom();
+      const countEl = document.getElementById("testCount");
+      const barEl = document.getElementById("testBar");
+      if (countEl) countEl.textContent = `${arr.length}/2`;
+      if (barEl) barEl.style.width = `${Math.min(100, (arr.length/2)*100)}%`;
+    }
+
+    function resetTestRoom(){
+      localStorage.removeItem(TEST_ROOM_KEY);
+      renderTestRoomCard();
+      const rb = document.getElementById("resultBox");
+      if (rb) rb.textContent = "";
+      if (currentRoom.id === 99) renderTestRoomSlots();
+    }
+
+    function openTestRoom(){
+      currentRoom = {id: 99, entry: 0}; 
+      document.getElementById('roomTitle').textContent = `Тест (2 игрока)`;
+      document.getElementById('roomEntry').textContent = 0;
+      document.getElementById('roomEntry2').textContent = 0;
+
+      // Останавливаем поллинг реального сервера
+      stopRoomPolling();
+      
+      const rb = document.getElementById("resultBox");
+      if (rb) rb.textContent = "";
+
+      show('room');
+      renderTestRoomSlots();
+    }
+
+    function renderTestRoomSlots(){
+      const members = loadTestRoom().map(name => ({username: name, photo_url: null}));
+      
+      // Рендерим слоты динамически
+      renderSlots(members);
+
+      // Обновляем статы вручную для демо-комнаты
+      document.querySelectorAll(".row b")[0].textContent = `${members.length}/2`;
+      document.querySelectorAll(".row b")[1].textContent = `0 TON`;
+      document.querySelectorAll(".row b")[2].textContent = `0 TON`;
+      document.querySelectorAll(".row b")[3].textContent = `0 TON`;
+
+      if (members.length >= 2) startTestGame(members.map(m=>m.username));
+    }
+
+    function startTestGame(players){
+      const rb = document.getElementById("resultBox");
+      if (!rb) return;
+
+      rb.textContent = "🎰 Игра началась… выбираем победителя…";
+      setTimeout(() => {
+        const winner = players[Math.floor(Math.random()*players.length)];
+        rb.textContent = `🎉 Победитель: ${winner} (тестовый режим)`;
+        setTimeout(() => {
+          rb.textContent = "Комната очищена. Можно сыграть ещё раз.";
+          resetTestRoom();
+        }, 5000);
+      }, 1400);
+    }
+
+    // ИЗМЕНЕНИЕ: Обновленная кнопка Присоединиться (теперь она умная)
     async function joinCurrent(){
+      // Логика для тест-комнаты
+      if (currentRoom.id === 99){
+        const name = getTGName();
+        const arr = loadTestRoom();
+        if (!arr.includes(name) && arr.length < 2){
+          arr.push(name);
+          saveTestRoom(arr);
+        }
+        renderTestRoomSlots();
+        return;
+      }
+
+      // Логика для реальных комнат (отправка на сервер)
       const u = tgUser();
       const payload = JSON.stringify({
         action: "join",
@@ -546,6 +651,9 @@
       if (type === 'deposit') alert('Далее подключим пополнение (TON/CryptoBot).');
       if (type === 'withdraw') alert('Далее подключим вывод (через заявку/админку).');
     }
+
+    // Первоначальный рендер тестовой карточки при загрузке страницы
+    renderTestRoomCard();
   </script>
 </body>
 </html>
