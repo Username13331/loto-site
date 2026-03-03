@@ -435,8 +435,8 @@
     const tg = window.Telegram?.WebApp;
     try { tg?.ready(); tg?.expand(); } catch(e){}
 
-    // ИЗМЕНЕНИЕ: Адрес вашего API сервера [cite: 2026-03-03]
-    const API_BASE = "http://144.31.103.60:8088"; 
+    // ПРАВИЛЬНАЯ ССЫЛКА ИЗ ВАШЕГО ОКНА NGROK
+    const API_BASE = "https://unextracted-dwindlingly-amberly.ngrok-free.dev"; 
 
     let currentRoom = {id:1, entry:10};
 
@@ -536,7 +536,6 @@
       roomTimer = null;
     }
 
-    // НОВАЯ ФУНКЦИЯ: Синхронизация Тестовой комнаты №2 через API [cite: 2026-03-03]
     async function joinTest2(){
       const u = tg?.initDataUnsafe?.user;
       const payload = {
@@ -553,7 +552,6 @@
         });
         const data = await r.json();
 
-        // Отрисовка участников напрямую из ответа сервера [cite: 2026-03-03]
         const members = (data.players || []).map(x => ({username: x, photo_url: null}));
         renderSlots(members);
         document.querySelectorAll(".row b")[0].textContent = `${members.length}/2`;
@@ -565,7 +563,7 @@
           rb.textContent = `✅ Ты в комнате: ${members.length}/2 (ждём второго)`;
         }
       } catch (e) {
-        alert("Ошибка связи с сервером! Проверь порт 8088 на 144.31.103.60.");
+        alert("Ошибка связи! Проверьте, запущено ли окно Ngrok в MobaXterm.");
       }
     }
 
@@ -580,18 +578,14 @@
       if (rb) rb.textContent = "";
 
       show('room');
-      // При открытии просто рендерим пустые слоты
       renderSlots([]);
     }
 
-    // ОБНОВЛЕННАЯ КНОПКА: Выбирает API для теста или sendData для остальных [cite: 2026-03-03]
     async function joinCurrent(){
-      // Если это тест-комната — используем HTTP API [cite: 2026-03-03]
       if (currentRoom.id === 99){
         return await joinTest2();
       }
 
-      // Для остальных комнат используем стандартный sendData [cite: 2026-03-03]
       const u = tgUser();
       const payload = JSON.stringify({
         action: "join",
