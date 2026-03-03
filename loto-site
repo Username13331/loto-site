@@ -435,11 +435,11 @@
     const tg = window.Telegram?.WebApp;
     try { tg?.ready(); tg?.expand(); } catch(e){}
 
-    // ПРАВИЛЬНАЯ ССЫЛКА ИЗ ВАШЕГО ОКНА NGROK
+    // АКТУАЛЬНАЯ ССЫЛКА NGROK [cite: 2026-03-03]
     const API_BASE = "https://unextracted-dwindlingly-amberly.ngrok-free.dev"; 
 
     let currentRoom = {id:1, entry:10};
-    let pollTimer = null; // Таймер для авто-обновления
+    let pollTimer = null; 
 
     function show(id){
       document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
@@ -451,17 +451,15 @@
       document.getElementById('roomTitle').textContent = `№${id}`;
       document.getElementById('roomEntry').textContent = entry;
       document.getElementById('roomEntry2').textContent = entry;
-      
       const rb = document.getElementById("resultBox");
       if (rb) rb.textContent = "";
-
       show('room');
       startRoomPolling(); 
     }
 
     function goLobby(){
       stopRoomPolling();
-      if(pollTimer) clearInterval(pollTimer);
+      if(pollTimer) clearInterval(pollTimer); // Чистим таймер при выходе [cite: 2026-03-03]
       show('lobby');
     }
 
@@ -478,30 +476,23 @@
       const el = document.getElementById("slots");
       if (!el) return;
 
-      // Для теста ограничиваем 2 слотами, для обычных 5 [cite: 2026-03-03]
-      const max = (currentRoom.id === 99) ? 2 : 5;
+      const max = (currentRoom.id === 99) ? 2 : 5; // Умный лимит слотов [cite: 2026-03-03]
       const filled = members.slice(0, max);
       const emptyCount = Math.max(0, max - filled.length);
 
       const slotHtml = (m) => `
         <div class="slot">
-          <div class="avatar" style="${m.photo_url ? `background-image:url('${m.photo_url}');background-size:cover;background-position:center;` : ""}"></div>
+          <div class="avatar" style="${m.photo_url ? `background-image:url('${m.photo_url}');background-size:cover;` : ""}"></div>
           <div class="u">${m.username || "Игрок"}</div>
         </div>
       `;
-
-      const emptyHtml = () => `
-        <div class="slot empty">
-          <div class="avatar">+</div>
-          <div class="u">Ожидание…</div>
-        </div>
-      `;
+      const emptyHtml = () => `<div class="slot empty"><div class="avatar">+</div><div class="u">Ожидание…</div></div>`;
 
       el.innerHTML = filled.map(slotHtml).join("") + Array.from({length: emptyCount}).map(emptyHtml).join("");
     }
 
     async function fetchRoomState(roomId){
-      const r = await fetch(`${API_BASE}/api/rooms/${roomId}`, { cache: "no-store" });
+      const r = await fetch(`${API_BASE}/api/test2/state?room_id=${roomId}`, { cache: "no-store" });
       if (!r.ok) throw new Error("API error");
       return await r.json();
     }
@@ -509,23 +500,16 @@
     async function refreshRoom(){
       try{
         const st = await fetchRoomState(currentRoom.id);
-
-        document.getElementById('roomTitle').textContent = `№${st.room_id}`;
-        document.getElementById('roomEntry').textContent = st.entry;
-        document.getElementById('roomEntry2').textContent = st.entry;
-
-        renderSlots(st.members || []);
-
-        const count = st.count ?? (st.members?.length ?? 0);
-        document.querySelectorAll(".row b")[0].textContent = `${count}/5`;
-        document.querySelectorAll(".row b")[1].textContent = `${st.pot ?? (st.entry * count)} TON`;
-        document.querySelectorAll(".row b")[2].textContent = `${st.fee ?? 0} TON`;
-        document.querySelectorAll(".row b")[3].textContent = `${st.expected ?? 0} TON`;
-      }catch(e){
-        if(document.getElementById("slots").innerHTML === "") {
-             renderSlots([]);
+        renderSlots(st.players ? st.players.map(x=>({username:x})) : []);
+        
+        const countEl = document.querySelectorAll(".row b")[0];
+        if(countEl) countEl.textContent = `${(st.players||[]).length}/${(currentRoom.id===99)?2:5}`;
+        
+        const rb = document.getElementById("resultBox");
+        if (st.started && st.winner) {
+          rb.textContent = `🎉 Победитель: ${st.winner}`;
         }
-      }
+      }catch(e){}
     }
 
     let roomTimer = null;
@@ -541,38 +525,17 @@
       roomTimer = null;
     }
 
-    // ТА САМАЯ ФУНКЦИЯ АВТО-ОБНОВЛЕНИЯ ДЛЯ ТЕСТА [cite: 2026-03-03]
+    // УЛУЧШЕННЫЙ ПОЛЛИНГ ДЛЯ ТЕСТА [cite: 2026-03-03]
     async function startPolling() {
       if(pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(async () => {
-        try {
-          const r = await fetch(`${API_BASE}/api/test2/state?room_id=99`);
-          const data = await r.json();
-          
-          if(data.players) {
-              const members = data.players.map(x => ({username: x, photo_url: null}));
-              renderSlots(members);
-              document.querySelectorAll(".row b")[0].textContent = `${members.length}/2`;
-          }
-
-          const rb = document.getElementById("resultBox");
-          if (data.started && data.winner) {
-            rb.textContent = `🎉 Победитель: ${data.winner}`;
-            // Не останавливаем таймер сразу, чтобы оба увидели результат [cite: 2026-03-03]
-          } else {
-            rb.textContent = data.players.length > 0 ? `✅ Ты в комнате: ${data.players.length}/2 (ждём второго)` : "";
-          }
-        } catch(e) {}
+        await refreshRoom();
       }, 2000);
     }
 
     async function joinTest2(){
       const u = tgUser();
-      const payload = {
-        room_id: 99,
-        user_id: u.id || 123,
-        username: u.username
-      };
+      const payload = { room_id: 99, user_id: u.id || 123, username: u.username };
 
       try {
         const r = await fetch(`${API_BASE}/api/test2/join`, {
@@ -581,14 +544,12 @@
           body: JSON.stringify(payload)
         });
         const data = await r.json();
-
-        const members = (data.players || []).map(x => ({username: x, photo_url: null}));
-        renderSlots(members);
-        document.querySelectorAll(".row b")[0].textContent = `${members.length}/2`;
-
-        if (data.started && data.winner){
-          document.getElementById("resultBox").textContent = `🎉 Победитель: ${data.winner}`;
+        
+        if(data.players) {
+            renderSlots(data.players.map(x => ({username: x})));
+            document.querySelectorAll(".row b")[0].textContent = `${data.players.length}/2`;
         }
+        if (data.started && data.winner) document.getElementById("resultBox").textContent = `🎉 Победитель: ${data.winner}`;
       } catch (e) {
         alert("Ошибка связи! Проверьте окно Ngrok.");
       }
@@ -599,38 +560,22 @@
       document.getElementById('roomTitle').textContent = `Тест (2 игрока)`;
       document.getElementById('roomEntry').textContent = 0;
       document.getElementById('roomEntry2').textContent = 0;
-
       stopRoomPolling();
-      const rb = document.getElementById("resultBox");
-      if (rb) rb.textContent = "";
-
+      document.getElementById("resultBox").textContent = "";
       show('room');
       renderSlots([]);
-      startPolling(); // Запускаем слежку за комнатой [cite: 2026-03-03]
+      startPolling(); // Начинаем следить за комнатой [cite: 2026-03-03]
     }
 
     async function joinCurrent(){
-      if (currentRoom.id === 99){
-        return await joinTest2();
-      }
-
+      if (currentRoom.id === 99) return await joinTest2();
       const u = tgUser();
-      const payload = JSON.stringify({
-        action: "join",
-        room_id: currentRoom.id,
-        user: u
-      });
-
-      if (window.Telegram?.WebApp?.sendData) {
-        Telegram.WebApp.sendData(payload);
-      } else {
-        alert("Данные для бота: " + payload);
-      }
+      const payload = JSON.stringify({ action: "join", room_id: currentRoom.id, user: u });
+      if (window.Telegram?.WebApp?.sendData) Telegram.WebApp.sendData(payload);
     }
 
     function fake(type){
-      if (type === 'deposit') alert('Далее подключим пополнение.');
-      if (type === 'withdraw') alert('Далее подключим вывод.');
+      alert(type === 'deposit' ? 'Далее подключим пополнение.' : 'Далее подключим вывод.');
     }
   </script>
 </body>
