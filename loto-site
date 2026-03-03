@@ -432,11 +432,11 @@
   </div>
 
   <script>
-    // Telegram polish
     const tg = window.Telegram?.WebApp;
     try { tg?.ready(); tg?.expand(); } catch(e){}
 
-    const API_BASE = "http://144.31.103.60"; 
+    // ИЗМЕНЕНИЕ: Адрес вашего API сервера [cite: 2026-03-03]
+    const API_BASE = "http://144.31.103.60:8088"; 
 
     let currentRoom = {id:1, entry:10};
 
@@ -536,39 +536,37 @@
       roomTimer = null;
     }
 
-    // ===== TEST ROOM LOGIC =====
-    const TEST_ROOM_KEY = "test_room_2p_v1";
-
-    function getTGName(){
+    // НОВАЯ ФУНКЦИЯ: Синхронизация Тестовой комнаты №2 через API [cite: 2026-03-03]
+    async function joinTest2(){
       const u = tg?.initDataUnsafe?.user;
-      if (!u) return "Игрок";
-      return u.username ? "@"+u.username : (u.first_name || "Игрок");
-    }
+      const payload = {
+        room_id: 99,
+        user_id: u?.id || 123,
+        username: u?.username ? "@"+u.username : (u?.first_name || "Игрок")
+      };
 
-    function loadTestRoom(){
-      try { return JSON.parse(localStorage.getItem(TEST_ROOM_KEY) || "[]"); }
-      catch { return []; }
-    }
+      try {
+        const r = await fetch(`${API_BASE}/api/test2/join`, {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify(payload)
+        });
+        const data = await r.json();
 
-    function saveTestRoom(arr){
-      localStorage.setItem(TEST_ROOM_KEY, JSON.stringify(arr));
-      renderTestRoomCard();
-    }
+        // Отрисовка участников напрямую из ответа сервера [cite: 2026-03-03]
+        const members = (data.players || []).map(x => ({username: x, photo_url: null}));
+        renderSlots(members);
+        document.querySelectorAll(".row b")[0].textContent = `${members.length}/2`;
 
-    function renderTestRoomCard(){
-      const arr = loadTestRoom();
-      const countEl = document.getElementById("testCount");
-      const barEl = document.getElementById("testBar");
-      if (countEl) countEl.textContent = `${arr.length}/2`;
-      if (barEl) barEl.style.width = `${Math.min(100, (arr.length/2)*100)}%`;
-    }
-
-    function resetTestRoom(){
-      localStorage.removeItem(TEST_ROOM_KEY);
-      renderTestRoomCard();
-      const rb = document.getElementById("resultBox");
-      if (rb) rb.textContent = "";
-      if (currentRoom.id === 99) renderTestRoomSlots();
+        const rb = document.getElementById("resultBox");
+        if (data.started && data.winner){
+          rb.textContent = `🎉 Победитель: ${data.winner}`;
+        } else {
+          rb.textContent = `✅ Ты в комнате: ${members.length}/2 (ждём второго)`;
+        }
+      } catch (e) {
+        alert("Ошибка связи с сервером! Проверь порт 8088 на 144.31.103.60.");
+      }
     }
 
     function openTestRoom(){
@@ -578,66 +576,27 @@
       document.getElementById('roomEntry2').textContent = 0;
 
       stopRoomPolling();
-      
       const rb = document.getElementById("resultBox");
       if (rb) rb.textContent = "";
 
       show('room');
-      renderTestRoomSlots();
+      // При открытии просто рендерим пустые слоты
+      renderSlots([]);
     }
 
-    function renderTestRoomSlots(){
-      const members = loadTestRoom().map(name => ({username: name, photo_url: null}));
-      renderSlots(members);
-
-      document.querySelectorAll(".row b")[0].textContent = `${members.length}/2`;
-      document.querySelectorAll(".row b")[1].textContent = `0 TON`;
-      document.querySelectorAll(".row b")[2].textContent = `0 TON`;
-      document.querySelectorAll(".row b")[3].textContent = `0 TON`;
-
-      if (members.length >= 2) startTestGame(members.map(m=>m.username));
-    }
-
-    function startTestGame(players){
-      const rb = document.getElementById("resultBox");
-      if (!rb) return;
-
-      rb.textContent = "🎰 Игра началась… выбираем победителя…";
-      setTimeout(() => {
-        const winner = players[Math.floor(Math.random()*players.length)];
-        rb.textContent = `🎉 Победитель: ${winner} (тестовый режим)`;
-        setTimeout(() => {
-          rb.textContent = "Комната очищена. Можно сыграть ещё раз.";
-          resetTestRoom();
-        }, 5000);
-      }, 1400);
-    }
-
-    // ИЗМЕНЕНИЕ: Только отправка боту в тест-комнате (без симуляции)
+    // ОБНОВЛЕННАЯ КНОПКА: Выбирает API для теста или sendData для остальных [cite: 2026-03-03]
     async function joinCurrent(){
-      const u = tg?.initDataUnsafe?.user;
-
+      // Если это тест-комната — используем HTTP API [cite: 2026-03-03]
       if (currentRoom.id === 99){
-        const payload = JSON.stringify({
-          action: "join_test2",
-          room_id: 99,
-          user_id: u?.id,
-          username: u?.username ? "@"+u.username : (u?.first_name || "Игрок")
-        });
-
-        if (window.Telegram?.WebApp?.sendData) {
-          Telegram.WebApp.sendData(payload);
-        } else {
-          alert(payload);
-        }
-        return;
+        return await joinTest2();
       }
 
-      // ЛОГИКА ДЛЯ ОСТАЛЬНЫХ КОМНАТ
+      // Для остальных комнат используем стандартный sendData [cite: 2026-03-03]
+      const u = tgUser();
       const payload = JSON.stringify({
         action: "join",
         room_id: currentRoom.id,
-        user: tgUser()
+        user: u
       });
 
       if (window.Telegram?.WebApp?.sendData) {
@@ -651,8 +610,6 @@
       if (type === 'deposit') alert('Далее подключим пополнение (TON/CryptoBot).');
       if (type === 'withdraw') alert('Далее подключим вывод (через заявку/админку).');
     }
-
-    renderTestRoomCard();
   </script>
 </body>
 </html>
