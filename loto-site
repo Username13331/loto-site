@@ -439,6 +439,7 @@
     const API_BASE = "https://unextracted-dwindlingly-amberly.ngrok-free.dev"; 
 
     let currentRoom = {id:1, entry:10};
+    let pollTimer = null; // Таймер для авто-обновления
 
     function show(id){
       document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
@@ -460,6 +461,7 @@
 
     function goLobby(){
       stopRoomPolling();
+      if(pollTimer) clearInterval(pollTimer);
       show('lobby');
     }
 
@@ -476,7 +478,8 @@
       const el = document.getElementById("slots");
       if (!el) return;
 
-      const max = 5;
+      // Для теста ограничиваем 2 слотами, для обычных 5 [cite: 2026-03-03]
+      const max = (currentRoom.id === 99) ? 2 : 5;
       const filled = members.slice(0, max);
       const emptyCount = Math.max(0, max - filled.length);
 
@@ -528,20 +531,47 @@
     let roomTimer = null;
     function startRoomPolling(){
       stopRoomPolling();
-      refreshRoom();
-      roomTimer = setInterval(refreshRoom, 2000);
+      if(currentRoom.id !== 99) {
+        refreshRoom();
+        roomTimer = setInterval(refreshRoom, 2000);
+      }
     }
     function stopRoomPolling(){
       if (roomTimer) clearInterval(roomTimer);
       roomTimer = null;
     }
 
+    // ТА САМАЯ ФУНКЦИЯ АВТО-ОБНОВЛЕНИЯ ДЛЯ ТЕСТА [cite: 2026-03-03]
+    async function startPolling() {
+      if(pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async () => {
+        try {
+          const r = await fetch(`${API_BASE}/api/test2/state?room_id=99`);
+          const data = await r.json();
+          
+          if(data.players) {
+              const members = data.players.map(x => ({username: x, photo_url: null}));
+              renderSlots(members);
+              document.querySelectorAll(".row b")[0].textContent = `${members.length}/2`;
+          }
+
+          const rb = document.getElementById("resultBox");
+          if (data.started && data.winner) {
+            rb.textContent = `🎉 Победитель: ${data.winner}`;
+            // Не останавливаем таймер сразу, чтобы оба увидели результат [cite: 2026-03-03]
+          } else {
+            rb.textContent = data.players.length > 0 ? `✅ Ты в комнате: ${data.players.length}/2 (ждём второго)` : "";
+          }
+        } catch(e) {}
+      }, 2000);
+    }
+
     async function joinTest2(){
-      const u = tg?.initDataUnsafe?.user;
+      const u = tgUser();
       const payload = {
         room_id: 99,
-        user_id: u?.id || 123,
-        username: u?.username ? "@"+u.username : (u?.first_name || "Игрок")
+        user_id: u.id || 123,
+        username: u.username
       };
 
       try {
@@ -556,14 +586,11 @@
         renderSlots(members);
         document.querySelectorAll(".row b")[0].textContent = `${members.length}/2`;
 
-        const rb = document.getElementById("resultBox");
         if (data.started && data.winner){
-          rb.textContent = `🎉 Победитель: ${data.winner}`;
-        } else {
-          rb.textContent = `✅ Ты в комнате: ${members.length}/2 (ждём второго)`;
+          document.getElementById("resultBox").textContent = `🎉 Победитель: ${data.winner}`;
         }
       } catch (e) {
-        alert("Ошибка связи! Проверьте, запущено ли окно Ngrok в MobaXterm.");
+        alert("Ошибка связи! Проверьте окно Ngrok.");
       }
     }
 
@@ -579,6 +606,7 @@
 
       show('room');
       renderSlots([]);
+      startPolling(); // Запускаем слежку за комнатой [cite: 2026-03-03]
     }
 
     async function joinCurrent(){
@@ -601,8 +629,8 @@
     }
 
     function fake(type){
-      if (type === 'deposit') alert('Далее подключим пополнение (TON/CryptoBot).');
-      if (type === 'withdraw') alert('Далее подключим вывод (через заявку/админку).');
+      if (type === 'deposit') alert('Далее подключим пополнение.');
+      if (type === 'withdraw') alert('Далее подключим вывод.');
     }
   </script>
 </body>
