@@ -536,7 +536,7 @@
       roomTimer = null;
     }
 
-    // ===== ИЗМЕНЕНИЕ: Логика Тестовой комнаты (2 игрока) =====
+    // ===== TEST ROOM LOGIC =====
     const TEST_ROOM_KEY = "test_room_2p_v1";
 
     function getTGName(){
@@ -577,7 +577,6 @@
       document.getElementById('roomEntry').textContent = 0;
       document.getElementById('roomEntry2').textContent = 0;
 
-      // Останавливаем поллинг реального сервера
       stopRoomPolling();
       
       const rb = document.getElementById("resultBox");
@@ -589,11 +588,8 @@
 
     function renderTestRoomSlots(){
       const members = loadTestRoom().map(name => ({username: name, photo_url: null}));
-      
-      // Рендерим слоты динамически
       renderSlots(members);
 
-      // Обновляем статы вручную для демо-комнаты
       document.querySelectorAll(".row b")[0].textContent = `${members.length}/2`;
       document.querySelectorAll(".row b")[1].textContent = `0 TON`;
       document.querySelectorAll(".row b")[2].textContent = `0 TON`;
@@ -617,31 +613,44 @@
       }, 1400);
     }
 
-    // ИЗМЕНЕНИЕ: Обновленная кнопка Присоединиться (теперь она умная)
+    // ОБНОВЛЕННАЯ ФУНКЦИЯ ДЛЯ ОТПРАВКИ join_test2
     async function joinCurrent(){
-      // Логика для тест-комнаты
+      const u = tg?.initDataUnsafe?.user;
+
+      // ЛОГИКА ДЛЯ ТЕСТ-КОМНАТЫ (ID 99)
       if (currentRoom.id === 99){
-        const name = getTGName();
+        const payload = JSON.stringify({
+          action: "join_test2",
+          room_id: 99,
+          user_id: u?.id,
+          username: u?.username ? "@"+u.username : (u?.first_name || "Игрок")
+        });
+
+        // Визуальная симуляция
+        const name = u?.username ? "@"+u.username : (u?.first_name || "Игрок");
         const arr = loadTestRoom();
         if (!arr.includes(name) && arr.length < 2){
           arr.push(name);
           saveTestRoom(arr);
         }
         renderTestRoomSlots();
+
+        // Отправка боту
+        if (window.Telegram?.WebApp?.sendData) {
+          Telegram.WebApp.sendData(payload);
+        }
         return;
       }
 
-      // Логика для реальных комнат (отправка на сервер)
-      const u = tgUser();
+      // ЛОГИКА ДЛЯ ОСТАЛЬНЫХ КОМНАТ
       const payload = JSON.stringify({
         action: "join",
         room_id: currentRoom.id,
-        user: u
+        user: tgUser()
       });
 
       if (window.Telegram?.WebApp?.sendData) {
         Telegram.WebApp.sendData(payload);
-        Telegram.WebApp.showToast?.(`Отправка данных...`);
       } else {
         alert("Данные для бота: " + payload);
       }
@@ -652,7 +661,6 @@
       if (type === 'withdraw') alert('Далее подключим вывод (через заявку/админку).');
     }
 
-    // Первоначальный рендер тестовой карточки при загрузке страницы
     renderTestRoomCard();
   </script>
 </body>
